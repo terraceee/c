@@ -302,7 +302,7 @@ function EspObject:Render()
 
 		local healthText = visible.healthText;
 		healthText.Text = round(self.health) .. "";
-		healthText.Size = 12;
+		healthText.Size = 13;
 		healthText.Font = interface.sharedSettings.textFont;
 		healthText.Color = Color3.new(1,1,1);
 		healthText.Transparency = options.healthTextColor[2];
