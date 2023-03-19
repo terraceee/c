@@ -1,0 +1,494 @@
+
+                       
+
+               -- services
+               local players = game:GetService("Players");
+               local runService = game:GetService("RunService");
+               local tweenService = game:GetService("TweenService");
+               
+               -- variables
+               local localPlayer = players.LocalPlayer;
+               local camera = workspace.CurrentCamera;
+               local normalIds = Enum.NormalId:GetEnumItems();
+               local ignoreList = {
+                workspace.Players,
+                workspace.Terrain,
+                workspace.Ignore,
+                workspace.CurrentCamera
+            };
+
+            -- modules
+local modules = {};
+for _, module in next, getloadedmodules() do
+    local name = module and module.Name;
+    if name == "ReplicationInterface" then
+        modules.replication = require(module);
+        modules.entryTable = debug.getupvalue(modules.replication.getEntry, 1);
+    elseif name == "WeaponControllerInterface" then
+        modules.weaponController = require(module);
+    elseif name == "PublicSettings" then
+        modules.settings = require(module);
+    elseif name == "particle" then
+        modules.particle = require(module);
+        setreadonly(modules.particle, false);
+    elseif name == "CharacterInterface" then
+        modules.character = require(module);
+    elseif name == "sound" then
+        modules.sound = require(module);
+    elseif name == "effects" then
+        modules.effects = require(module);
+    elseif name == "network" then
+        modules.network = require(module);
+    elseif name == "physics" then
+        modules.physics = require(module);
+    elseif name == "BulletCheck" then
+        modules.bulletcheck = require(module);
+    end
+end
+
+do -- ragebot
+    local lastShot = 0;
+    local replicationPosition = Vector3.zero;
+    local replicationAngles = Vector2.zero;
+    local replicationTickOffset = 0;
+    local health = {};
+
+    -- functions
+    local function scanTarget(position, data)
+        local origins = { CFrame.new(replicationPosition, position) };
+        local targets = { CFrame.new(position, replicationPosition) };
+
+        -- add points
+        if pointers.rage_scanning_enabled:Get() then
+            local origin = origins[1];
+            local target = targets[1];
+            for _, id in next, normalIds do
+                local dir = Vector3.fromNormalId(id);
+                if pointers.rage_scanning_fireposscanning:Get() then
+                    table.insert(origins, origin + dir * math.clamp(pointers.rage_scanning_fireposscanning_radius:Get(), 1, 9.99));
+                end
+                if pointers.rage_scanning_targetscanning:Get() then
+                    table.insert(targets, target + dir * math.clamp(pointers.rage_scanning_targetscanning_radius:Get(), 1, 5.5));
+                end
+            end
+        end
+
+        -- scan points
+        for _, origin in next, origins do
+            origin = origin.Position;
+            for _, target in next, targets do
+                target = target.Position
+
+                local velocity = modules.physics.trajectory(origin, modules.settings.bulletAcceleration, target, data.bulletspeed);
+                if modules.bulletcheck(origin, target, velocity, modules.settings.bulletAcceleration, data.penetrationdepth) then
+                    return { origin = origin, target = target, velocity = velocity };
+                end
+            end
+        end
+    end
+
+    local function getTarget(data)
+        local _min = math.huge;
+        local _player, _scan, _entry;
+        local cframe = camera.CFrame;
+        for player, entry in next, modules.entryTable do
+            local position = entry._receivedPosition;
+            if not position or player.Team == localPlayer.Team or not entry:isAlive() or (health[player] or entry:getHealth()) < 1 then
+                continue;
+            end
+
+            -- check priority
+            local vector = cframe.Position - position;
+            local min = pointers.rage_ragebot_targetmethod:Get() == "looking at" and cframe.LookVector:Dot(vector.Unit) or vector.Magnitude;
+            if min >= _min then
+                continue;
+            end
+
+            -- scan player
+            local scan = scanTarget(position, data);
+            if scan then
+                _min = min;
+                _player = player;
+                _scan = scan;
+                _entry = entry;
+            end
+        end
+        return _player, _scan, _entry;
+    end
+
+    local function calculateDamage(distance, name, data)
+        local damage = distance < data.range0 and data.damage0 or (distance < data.range1 and (((data.damage1 - data.damage0) / (data.range1 - data.range0)) * (distance - data.range0)) + data.damage0 or data.damage1);
+        local multiplier = name == "Head" and data.multhead or (name == "Torso" and data.multtorso or data.multlimb or 1);
+        return damage * multiplier;
+    end
+
+    -- hooks
+    local send = modules.network.send;
+    function modules.network:send(name, ...)
+        local args = { ... };
+        if name == "repupdate" then
+            replicationPosition = args[1];
+            replicationAngles = args[2];
+            args[3] += replicationTickOffset;
+        elseif name == "newbullets" or name == "spotplayers" or name == "equip" then
+            args[2] += replicationTickOffset;
+        elseif name == "newgrenade" or name == "updatesight" then
+            args[3] += replicationTickOffset;
+        elseif name == "bullethit" then
+            args[5] += replicationTickOffset;
+        elseif name == "ping" then
+            return;
+        end
+        return send(self, name, unpack(args));
+    end
+
+    -- connections
+    utils:Connection(runService.Heartbeat, function()
+        if library.flags.rage_enabled and modules.character.isAlive() then
+            -- get weapon
+            local controller = modules.weaponController.getController();
+            local weapon = controller and controller:getActiveWeapon();
+            local data = weapon and weapon:getWeaponData();
+            if not data or not weapon.getFirerate or (weapon._magCount < 1 and weapon._spareCount < 1) then
+                return;
+            end
+
+            -- check timing
+            local deltaTime = tick() - lastShot;
+            local fireRate = 60 / weapon:getFirerate();
+            if deltaTime < (library.flags.rage_fr:Get() and 60/library.flags.rage_fr_val:Get() or fireRate) then
+                return;
+            end
+
+            lastShot = tick();
+
+            -- get target
+            local player, scan, entry = getTarget(data);
+            if not player then
+                return;
+            end
+
+            -- bypass firerate check
+            local syncedTime = modules.network:getTime();
+            if deltaTime < fireRate then
+                replicationTickOffset += fireRate - deltaTime;
+                modules.network:send("repupdate", replicationPosition, replicationAngles, syncedTime);
+            end
+
+            -- creating bullet(s)
+            local bulletCount = data.pelletcount or 1;
+            local bulletId = debug.getupvalue(weapon.fireRound, 10);
+            local bullets = table.create(bulletCount, { scan.velocity, bulletId });
+
+            for i, v in next, bullets do
+                v[2] += i;
+            end
+
+            debug.setupvalue(weapon.fireRound, 10, bulletId + bulletCount);
+
+            -- registering bullet(s)
+            modules.network:send("newbullets", {
+                firepos = scan.origin,
+                camerapos = replicationPosition,
+                bullets = bullets
+            }, syncedTime);
+
+            -- effects
+            modules.sound.PlaySoundId(data.firesoundid, data.firevolume, data.firepitch, weapon._barrelPart, nil, 0, 0.05);
+            modules.effects:muzzleflash(weapon._barrelPart, data.hideflash);
+
+            for _, bullet in next, bullets do
+                modules.particle.new({
+                    size = 0.2,
+                    bloom = 0.005,
+                    brightness = 400,
+                    dt = deltaTime,
+                    position = scan.origin,
+                    velocity = bullet[1],
+                    life = modules.settings.bulletLifeTime,
+                    acceleration = modules.settings.bulletAcceleration,
+                    color = data.bulletcolor or Color3.fromRGB(200, 70, 70),
+                    visualorigin = weapon._barrelPart.Position,
+                    physicsignore = ignoreList,
+                    penetrationdepth = data.penetrationdepth,
+                    tracerless = data.tracerless
+                });
+            end
+
+            -- updating magazine
+            weapon._magCount -= 1;
+            if weapon._magCount < 1 then
+                local newCount = data.magsize + (data.chamber and 1 or 0) + weapon._magCount;
+                if weapon._spareCount >= newCount then
+                    weapon._magCount += newCount;
+                    weapon._spareCount -= newCount;
+                else
+                    weapon._magCount += weapon._spareCount;
+                    weapon._spareCount = 0;
+                end
+
+                modules.network:send("reload");
+            end
+
+            -- registering hit(s)
+            local hitpart = pointers.rage_ragebot_hitpart:Get() == "head" and "Head" or "Torso";
+            for _, bullet in next, bullets do
+                modules.network:send("bullethit", player, scan.target, hitpart, bullet[2], syncedTime);
+                modules.sound.PlaySound("hitmarker", nil, 1, 1.5);
+            end
+
+            -- updating health
+            if pointers.rage_ragebot_shotlimiter:Get() then
+                health[player] = (health[player] or entry:getHealth()) - calculateDamage((scan.target - replicationPosition).Magnitude, hitpart, data) * bulletCount;
+
+                if health[player] < 1 then
+                    task.wait(1);
+                    health[player] = nil;
+                end
+            end
+        end
+    end);
+end
+
+do -- visuals
+    -- functions
+    local function createTracer(start, velocity)
+        local beam = utils:Instance("Beam", {
+            FaceCamera = true,
+            Color = ColorSequence.new(library.flags.visuals_bullet_tracers_color:Get().Color),
+            Transparency = NumberSequence.new(0),
+            LightEmission = 0,
+            LightInfluence = 0,
+            Width0 = 0.75,
+            Width1 = 0.75,
+            Texture = "rbxassetid://446111271",
+            TextureLength = 12,
+            TextureMode = Enum.TextureMode.Wrap,
+            TextureSpeed = 1,
+            Parent = workspace.Ignore,
+            Attachment0 = utils:Instance("Attachment", {
+                Position = start,
+                Parent = workspace.Terrain
+            }),
+            Attachment1 = utils:Instance("Attachment", {
+                Position = start + velocity,
+                Parent = workspace.Terrain
+            })
+        });
+
+        task.delay(pointers.visuals_bullets_tracers_time:Get(), function()
+            tweenService:Create(beam, TweenInfo.new(1), { Width0 = 0, Width1 = 0, TextureSpeed = 0 }):Play();
+            task.wait(1);
+            beam.Attachment0:Destroy();
+            beam.Attachment1:Destroy();
+            beam:Destroy();
+        end);
+    end
+
+    --local function createPoint(start, velocity)
+
+    --end
+
+    -- hooks
+    local old = modules.particle.new;
+    modules.particle.new = function(args)
+        if args.onplayerhit or checkcaller() then
+            if pointers.visuals_bullets_tracers:Get() then
+                createTracer(args.visualorigin, args.velocity);
+            end
+
+            --if pointers.visuals_bullets_points:Get() then
+            --    createPoint(args.visualorigin, args.velocity);
+            --end
+        end
+        return old(args);
+    end
+end
+
+local vahlikeslittleboys = {
+    bob = true,
+    amount = 100,
+}
+
+OldNewIndex = hookmetamethod(game, "__newindex", function(self, Key, Value)
+    if (self == game.Workspace.CurrentCamera and Key == "CFrame") and vahlikeslittleboys.bob then 
+        local X, Y, Z, R00, R01, R02, R10, R11, R12, R20, R21, R22 = Value:GetComponents()
+        Value = CFrame.new(X, Y, Z, R00, R01 * vahlikeslittleboys.amount / 100, R02, R10, R11 * vahlikeslittleboys.amount / 100, R12, R20, R21 * vahlikeslittleboys.amount / 100, R22)
+    end
+    return OldNewIndex(self, Key, Value)
+end)
+
+
+
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/corgifan51/symmetrical-tribble/main/animated-lamp-main/library"))();
+
+local Sense = loadstring(game:HttpGet('https://raw.githubusercontent.com/terraceee/c/main/backup'))()
+
+
+
+
+local bware = library:init_window({pages = 4, name = 'family guy haxx /\ phantom forces-test', size = Vector2.new(600,400), drag_tween = false})
+
+local rage = bware:create_page({ name = 'rage', left_name = 'ragebot', right_name = 'scanning'})
+local antiaim = bware:create_page({ name = 'anti aim', left_name = 'settings', right_name = 'values'})
+local esp = bware:create_page({ name = 'esp', left_name = 'players', right_name = 'other'})
+local visuals = bware:create_page({name = 'visuals', left_name = 'local', right_name = 'world'})
+local misc = bware:create_page({name = 'miscellaneous', left_name = '1', right_name = '2'})
+local settings = bware:create_page({name = 'settings', left_name = 'menu', right_name = 'other'})
+
+library.notify('[brocware]: loaded..', 15)
+wait(0.5)
+library.notify('[warning]: this is a test build!', 15)
+wait(0.5)
+library.notify('[warning]: expect bugs!', 15)
+
+
+rage:new_toggle({name = "enabled", flag = 'rage_enabled', risky = false})
+rage:new_keybind({name = "activation key", flag = "rage_kb", keybind_name = "ragebot", mode = "Toggle"})
+rage:new_toggle({name = "shot limiter", flag = 'rage_sl', risky = false})
+rage:new_toggle({name = "custom firerate", flag = 'rage_fr', risky = false})
+rage:new_slider({name = "firerate", flag = 'rage_fr_val', min = 10, max = 1500, default = 250, float = 1})
+rage:new_dropdown({name = "hitpart", flag = 'ragebot_hp', options = {'head','torso'}, default = 'head'})
+rage:new_dropdown({name = "target method", flag = 'ragebot_tm', options = {'closest','looking at'}, default = 'closest'})
+
+            rage:new_toggle({name = "enabled", flag = 's_enabled', risky = false, side = "right"})
+            rage:new_toggle({name = "fire position scanning", flag = 's_fps', risky = false, side = "right"})
+            rage:new_slider({name = "fire position radius", flag = 's_fpr', min = 1, max = 10, default = 8.5, float = 0.5, side = "right"})
+            rage:new_toggle({name = "target scanning", flag = 's_ts', risky = false, side = "right"})
+            rage:new_slider({name = "target radius", flag = 's_tr', min = 1, max = 5.5, default = 3.5, float = 0.5, side = "right"})
+            --rage:new_toggle({name = "teleport scanning", flag = 's_ts', risky = false, side = "right"})
+            --rage:new_slider({name = "teleport radius", flag = 's_tr', min = 1, max = 150, default = 100, float = 0.5, side = "right"})
+            --rage:new_dropdown({name = "teleport direction", flag = 's_td', options = {'up','down'}, default = 'up', side = "right"})
+
+
+
+            --local scanning = rage:new_container({name = "scanning", size = "300", side = "right"})
+            --scanning:new_toggle({name = "enabled", flag = 's_enabled', risky = false})
+            --scanning:new_toggle({name = "fire position scanning", flag = 's_fps', risky = false})
+            --scanning:new_slider({name = "fire position radius", flag = 's_fpr', min = 1, max = 10, default = 8.5, float = 0.5})
+            --scanning:new_toggle({name = "target scanning", flag = 's_ts', risky = false})
+            --:new_slider({name = "target radius", flag = 's_tr', min = 1, max = 5.5, default = 3.5, float = 0.5})
+            --scanning:new_toggle({name = "teleport scanning", flag = 's_ts', risky = false})
+            --scanning:new_slider({name = "teleport radius", flag = 's_tr', min = 1, max = 150, default = 100, float = 0.5})
+            --scanning:new_dropdown({name = "teleport direction", flag = 's_td', options = {'up','down'}, default = 'up'})
+
+            
+esp:new_toggle({name = 'enabled', side = 'left', callback = function(v) Sense.teamSettings.enemy.enabled = v end});
+esp:new_toggle({name = 'bounding box', side = 'left', callback = function(v) Sense.teamSettings.enemy.box = v end}):new_colorpicker({flag = 'esp_box_color', default = Color3.fromRGB(255,0,0), callback = function(v) Sense.teamSettings.enemy.boxColor[1] = v end});
+esp:new_toggle({name = "bounding box fill", flag = 'esp_boxfill', callback = function(v) Sense.teamSettings.enemy.boxFill = v end}):new_colorpicker({flag = 'esp_box_color', default = Color3.fromRGB(255,0,0), callback = function(v) Sense.teamSettings.enemy.boxFillColor[1] = v end});
+esp:new_slider({name = 'fill transparency', side = 'left', default = 0.5, min = 0, max = 1, float = .01, callback = function(v) Sense.teamSettings.enemy.boxFillColor[2] = v end})
+esp:new_toggle({name = "name", flag = 'esp_name', callback = function(v) Sense.teamSettings.enemy.name = v end}):new_colorpicker({flag = 'esp_name_color', default = Color3.fromRGB(255,255,255), callback = function(v) Sense.teamSettings.enemy.nameColor[1] = v end});
+local healthbar = esp:new_toggle({name = "healthbar", flag = 'esp_healthbar', callback = function(v) Sense.teamSettings.enemy.healthBar = v end}) do
+                    healthbar:new_colorpicker({flag = 'esp_health_color2', default = Color3.fromRGB(255,0,0), callback = function(v) Sense.teamSettings.enemy.healthyColor[1] = v end});
+                    healthbar:new_colorpicker({flag = 'esp_health_color1', default = Color3.fromRGB(0,255,0), callback = function(v) Sense.teamSettings.enemy.dyingColor[1] = v end});
+end;
+          esp:new_toggle({name = "health", flag = 'esp_health', callback = function(v) Sense.teamSettings.enemy.healthText = v end});  
+esp:new_toggle({name = "weapon", flag = 'esp_weapon', callback = function(v) Sense.teamSettings.enemy.weapon = v end}):new_colorpicker({flag = 'esp_weapon_color', default = Color3.fromRGB(255,255,255), callback = function(v) Sense.teamSettings.enemy.weaponColor[1] = v end});
+esp:new_toggle({name = "distance", flag = 'esp_distance', callback = function(v) Sense.teamSettings.enemy.distance = v end}):new_colorpicker({flag = 'esp_distance_color', default = Color3.fromRGB(255,255,255), callback = function(v) Sense.teamSettings.enemy.distanceColor[1] = v end});
+
+            Sense.teamSettings.enemy.chamsFillColor[2] = 0
+                local hlight = esp:new_toggle({name = "highlights", flag = 'esp_healthbar', callback = function(v) Sense.teamSettings.enemy.chams = v end}) do
+                    hlight:new_colorpicker({flag = 'esp_hlight_color2', default = Color3.fromRGB(255,0,0), callback = function(v) Sense.teamSettings.enemy.chamsFillColor[1] = v end});
+                    hlight:new_colorpicker({flag = 'esp_hliught_color1', default = Color3.fromRGB(0,255,0), callback = function(v) Sense.teamSettings.enemy.chamsOutlineColor[1] = v end});
+end;
+
+local esp_settings = esp:new_container({name = "settings", size = "150", side = "left"})
+esp_settings:new_slider({name = "text size", flag = 's_ts', min = 1, max = 20, default = 13, float = 1})
+esp_settings:new_dropdown({name = 'font', side = 'right', options = {"ui", "system", "plex", "monospace"}, max = 1, scrollable = false, scrollingmax = 4})
+esp_settings:new_slider({name = "weapon names", flag = 's_fpr', min = 1, max = 10, default = 8.5, float = 0.5})
+
+
+local dropped = esp:new_container({name = "dropped", size = "200", side = "right"})
+dropped:new_toggle({name = "grenade warning", flag = 's_enabled', risky = false})
+dropped:new_toggle({name = "grenade lines", flag = 's_fps', risky = false})
+dropped:new_slider({name = "weapon names", flag = 's_fpr', min = 1, max = 10, default = 8.5, float = 0.5})
+
+
+            
+
+visuals:new_slider({name = 'clock time', side = 'right', min = 0, max = 20, float = .00001, callback = function(v)
+_G.ClockTime = v
+local L = game:GetService("Lighting")
+game:GetService("RunService").RenderStepped:Connect(function()
+   L.ClockTime = _G.ClockTime
+end)
+end
+})
+
+    
+visuals:new_colorpicker({name = 'ambient', default = Color3.fromRGB(179, 173, 150), side = 'right', callback = function(v)
+_G.AMB = v
+local L = game:GetService("Lighting")
+game:GetService("RunService").RenderStepped:Connect(function()
+   L.Ambient = _G.AMB
+   L.OutdoorAmbient = _G.AMB
+end)
+end
+})
+
+visuals:new_dropdown({name = 'custom sky', side = 'right', options = {"none", "neptune", "sunset", "pink clouds"}, max = 1, scrollable = true, scrollingmax = 4})
+
+visuals:new_toggle({name = 'bullet tracers', side = 'right', flag = 'visuals_bullets_tracers'}):new_colorpicker({name = 'bullet tracers', flag = 'visuals_bullets_tracers_color', default = Color3.fromRGB(95, 174, 217), side = 'right'});
+
+visuals:new_slider({name = 'field of view', side = 'left', default = 90, min = 20, max = 120, float = 1, callback = function(v)
+    _G.FOV = v
+local L = game:GetService("Lighting")
+game:GetService("RunService").RenderStepped:Connect(function()
+   Workspace.Camera.FieldOfView = _G.FOV
+end)
+end});
+
+    
+visuals:new_slider({name = 'aspect ratio', side = 'left', default = 100, min = -100, max = 100, float = 1, callback = function(v)
+ vahlikeslittleboys.amount = v
+end});
+
+
+local GetEnemys=function()--simple ass get enemys
+                   local players={}
+                   local characters={}
+                   local enemyteam
+                   for _,v in pairs(game.Players:GetChildren())do
+                       if v.Team~=game.Players.LocalPlayer.Team then
+                           enemyteam=tostring(v.TeamColor)
+                           players[#players+1]=v
+                       end
+                   end
+                   if not enemyteam then
+                       enemyteam="Bright orange"
+                       if game.Players.LocalPlayer.Team.Name=="Ghosts"then
+                           enemyteam="Bright blue"
+                       end
+                   end
+                   for _,v in pairs(game.Workspace.Players[enemyteam]:GetChildren())do
+                       characters[#characters+1]=v
+                   end
+                   return{characters,players}
+               end
+               
+               
+               
+    -- game specific functions
+    local replication = getrenv().shared.require("ReplicationInterface");
+    
+    Sense.getWeapon = function(player)
+        local entry = player and replication.getEntry(player);
+        local object = entry and entry:getThirdPersonObject();
+        return object and object._weaponname or "Unknown";
+    end
+
+    Sense.getCharacter = function(player)
+        local entry = player and replication.getEntry(player);
+        local object = entry and entry:getThirdPersonObject();
+        return object and object:getCharacterModel();
+    end
+
+    Sense.getHealth = function(player)
+      local entry = player and replication.getEntry(player);
+      if entry and entry._alive then
+          return entry:getHealth();
+      end
+      return 0, 100;
+  end
+  
+  Sense.Load()
