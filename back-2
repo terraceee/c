@@ -2436,9 +2436,7 @@ function Library:Notify(Text, Time, type, warning)
         BackgroundColor3 = 'AccentColor';
     }, true);
 
-    Library:AddToRegistry(LeftColor2, {
-        BackgroundColor3 = Color3.fromRGB(Library.AccentColor.R * 255 - 40, Library.AccentColor.G * 255 - 40, Library.AccentColor.B * 255 - 40);
-    }, true);
+ 
 
     Library:AddToRegistry(BottomColor, {
         BackgroundColor3 = 'AccentColor';
