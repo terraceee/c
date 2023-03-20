@@ -2436,7 +2436,7 @@ function Library:Notify(Text, Time, type, warning)
         BackgroundColor3 = 'AccentColor';
     }, true);
 
- 
+
 
     Library:AddToRegistry(BottomColor, {
         BackgroundColor3 = 'AccentColor';
@@ -2473,7 +2473,7 @@ function Library:Notify(Text, Time, type, warning)
     task.spawn(function()
         while task.wait() do
             LeftColor.BackgroundColor3 = warning == true and Color3.fromRGB(0, (math.abs(math.sin(tick() * 3))) * 255, 0) or Library.AccentColor
-            LeftColor2.BackgroundColor3 = warning == true and Color3.fromRGB(0, (math.abs(math.sin(tick() * 3))) * 255, 0) or Color3.fromRGB(Library.AccentColor.R * 255 - 40, Library.AccentColor.G * 255 - 40, Library.AccentColor.B * 255 - 40)
+            
             BottomColor.BackgroundColor3 = warning == true and Color3.fromRGB(0, (math.abs(math.sin(tick() * 3))) * 255, 0) or Library.AccentColor
         end
     end)
