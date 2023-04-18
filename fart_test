@@ -1,0 +1,1275 @@
+
+
+-- // Luraph macros
+if not LPH_OBFUSCATED then
+    LPH_JIT = function(...) return ... end
+    LPH_JIT_MAX = function(...) return ... end
+    LPH_JIT_ULTRA = function(...) return ... end
+    LPH_NO_VIRTUALIZE = function(...) return ... end
+    LPH_NO_UPVALUES = function(f) return(function(...) return f(...) end) end
+    LPH_ENCSTR = function(...) return ... end
+    LPH_HOOK_FIX = function(...) return ... end
+    LPH_CRASH = function() return print(debug.traceback()) end
+end;
+
+-- // Handler
+local Handler = {Modules = {}}; do
+    Handler.CreateModule = function(ModuleName, Data)
+        local Module = Data or {};
+        Handler.Modules[ModuleName] = Module;
+        return Module;
+    end;
+end;
+
+-- // Main 
+do
+    local Players, ReplicatedStorage, TweenService, Lighting, RunService, TeleportService, UserInputService, Network, ContextActionService, HttpService = game:GetService("Players"), game:GetService("ReplicatedStorage"), game:GetService("TweenService"), game:GetService("Lighting"), game:GetService("RunService"), game:GetService("TeleportService"), game:GetService("UserInputService"), game:GetService("NetworkClient"), game:GetService("ContextActionService"), game:GetService("HttpService");
+    local ResetMemoryCategory, SetMemoryCategory, SetupValueName, SetMetatable, ProfileBegin, GetMetatable, GetConstants, GetRegistry, GetUpvalues, GetConstant, SetConstant, GetUpvalue, ValidLevel, LoadModule, SetupValue, ProfileEnd, GetProtos, GetLocals, Traceback, SetStack, GetLocal, DumpHeap, GetProto, SetLocal, GetStack, GetFenv, GetInfo, Info = debug.resetmemorycategory, debug.setmemorycategory, debug.setupvaluename, debug.setmetatable, debug.profilebegin, debug.getmetatable, debug.getconstants, debug.getregistry, debug.getupvalues, debug.getconstant, debug.setconstant, debug.getupvalue, debug.validlevel, debug.loadmodule, debug.setupvalue, debug.profileend, debug.getprotos, debug.getlocals, debug.traceback, debug.setstack, debug.getlocal, debug.dumpheap, debug.getproto, debug.setlocal, debug.getstack, debug.getfenv, debug.getinfo, debug.info
+    local RandomSeed, Random, Frexp, Floor, Atan2, Log10, Noise, Round, Ldexp, Clamp, Sinh, Sign, Asin, Acos, Fmod, Huge, Tanh, Sqrt, Atan, Modf, Ceil, Cosh, Deg, Min, Log, Cos, Exp, Max, Rad, Abs, Pow, Sin, Tan, Pi = math.randomseed, math.random, math.frexp, math.floor, math.atan2, math.log10, math.noise, math.round, math.ldexp, math.clamp, math.sinh, math.sign, math.asin, math.acos, math.fmod, math.huge, math.tanh, math.sqrt, math.atan, math.modf, math.ceil, math.cosh, math.deg, math.min, math.log, math.cos, math.exp, math.max, math.rad, math.abs, math.pow, math.sin, math.tan, math.pi
+    local ForEachI, IsFrozen, ForEach, Insert, Remove, Concat, Freeze, Create, TUnpack, Clear, Clone, MaxN, Move, Pack, TFind, Sort, GetN = table.foreachi, table.isfrozen, table.foreach, table.insert, table.remove, table.concat, table.freeze, table.create, table.unpack, table.clear, table.clone, table.maxn, table.move, table.pack, table.find, table.sort, table.getn;
+    local PackSize, Reverse, Unpack, GMatch, Format, Lower, Split, Match, Upper, Byte, Char, Pack, GSub, Find, Rep, Sub, Len = string.packsize, string.reverse, string.unpack, string.gmatch, string.format, string.lower, string.split, string.match, string.upper, string.byte, string.char, string.pack, string.gsub, string.find, string.rep, string.sub, string.len;
+    local CountLZ, RRotate, Replace, LRotate, CountRZ, AShift, Extract, LShift, RShift, BTest, Band, BNot, BXor, BOr = bit32.countlz, bit32.rrotate, bit32.replace, bit32.lrotate, bit32.countrz, bit32.arshift, bit32.extract, bit32.lshift, bit32.rshift, bit32.btest, bit32.band, bit32.bnot, bit32.bxor, bit32.bor;
+    local NFCNormalize, NFDNormalize, CharPattern, CodePoint, Graphemes, Offset, Codes, Char, Len = utf8.nfcnormalize, utf8.nfdnormalize, utf8.charpattern, utf8.codepoint, utf8.graphemes, utf8.offset, utf8.codes, utf8.char, utf8.len;
+    local Wait, Spawn, Delay = task.wait, task.spawn, task.delay;
+    local CreateRenderObject, SetRenderProperty, GetRenderProperty, DestroyRenderObject = getupvalue(Drawing.new, 1), getupvalue(getupvalue(Drawing.new, 7).__newindex, 4), getupvalue(getupvalue(Drawing.new, 7).__index, 4), getupvalue(getupvalue(Drawing.new, 7).__index, 3);
+    
+    local LocalPlayer = Players.LocalPlayer;
+    local CurrentCamera = workspace:FindFirstChildOfClass("Camera");
+    local ScreenSize = CurrentCamera.ViewportSize;
+
+    local FindFirstChild = workspace.FindFirstChild;
+    local FindFirstChildOfClass = workspace.FindFirstChildOfClass;
+    local WorldToViewPort = CurrentCamera.WorldToViewportPoint;
+    local PointToObjectSpace = CFrame.identity.PointToObjectSpace;
+    local PointToWorldSpace = CFrame.identity.PointToWorldSpace;
+    local GetDescendants = game.GetDescendants;
+    local IsDescendantOf = game.IsDescendantOf;
+    local GetChildren = game.GetChildren;
+    local GetPlayers = Players.GetPlayers;
+    local Raycast = workspace.Raycast;
+    local Vector = Vector2.new;
+    local CurrentGradient = nil;
+    local PartSizes = {
+        ["Head"] = Vector3.new(2, 1, 1),
+        ["Torso"] = Vector3.new(2, 2, 1),
+        ["Left Arm"] = Vector3.new(1, 2, 1),
+        ["Right Arm"] = Vector3.new(1, 2, 1),
+        ["Left Leg"] = Vector3.new(1, 2, 1),
+        ["Right Leg"] = Vector3.new(1, 2, 1)
+    }
+
+    -- // Utility
+    local Utility = Handler.CreateModule("Utility"); do
+        Utility.CreateRenderObject = LPH_NO_VIRTUALIZE(function(Class, Properties)
+            local Object = CreateRenderObject(Class);
+            for Property, Value in next, Properties do
+                SetRenderProperty(Object, Property, Value);
+            end;
+            return Object;
+        end);
+
+        Utility.CreateObject = LPH_NO_VIRTUALIZE(function(Class, Properties)
+            local Object = Instance.new(Class);
+            for Property, Value in next, Properties do
+                Object[Property] = Value;
+            end;
+            return Object;
+        end);
+        
+        Utility.Connection = LPH_NO_VIRTUALIZE(function(Object, Property, Callback)
+            local Connection = Object[Property]:Connect(Callback);
+            return Connection;
+        end);
+
+        -- // Math
+        Utility.RotateVector = LPH_NO_VIRTUALIZE(function(Vec, Rotation)
+            local Cosine = Cos(Rad(Rotation)); 
+            local Sine = Sin(Rad(Rotation)); 
+            return Vector(Cosine * Vec.X - Sine * Vec.Y, Sine * Vec.X + Cosine * Vec.Y);
+        end);
+
+        Utility.RoundVector = LPH_NO_VIRTUALIZE(function(Vector)
+            return Vector2.new(math.round(Vector.X), math.round(Vector.Y))
+        end);
+
+        Utility.ToVector = LPH_NO_VIRTUALIZE(function(Vector)
+            return Vector(Vector.X, Vector.Y);
+        end);
+
+        Utility.ToRot = LPH_NO_VIRTUALIZE(function(Angle)
+            return Vector(Sin(Rad(Angle)), Cos(Rad(Angle)));
+        end);
+
+        Utility.Round = LPH_NO_VIRTUALIZE(function(Value)
+            if typeof(Value) == "number" then
+                return Floor(Value);
+            end;
+            if typeof(Value) == "Vector2" then
+                return Vector(Round(Value.X), Round(Value.Y));
+            end;
+            if typeof(Value) == "Vector3" then
+                return Vector(Round(Value.X), Round(Value.Y), Round(Value.Z));
+            end;
+        end);
+
+        -- // Colors
+        Utility.ToInteger = function(Color) -- https://devforum.roblox.com/t/converting-a-color-to-a-hex-string/793018
+            return Floor(Color.r * 255) * 256 ^ 2 + Floor(Color.g * 255) * 256 + Floor(Color.b * 255)
+        end;
+        Utility.ToHex = function(Color) 
+            local Int = Utility.ToInteger(Color)     
+            local Current = Int;
+            local Final = "";
+            local HexChar = {"A", "B", "C", "D", "E", "F"};
+            
+            repeat local Remainder = Current % 16
+                local char = tostring(Remainder);
+                
+                if Remainder >= 10 then
+                    char = HexChar[1 + Remainder - 10];
+                end;
+                
+                Current = Floor(Current/16);
+                Final = Final .. char;
+            until Current <= 0
+            
+            return Reverse(Final);
+        end;
+    end;
+
+    -- // Library
+    local Container = Instance.new("Folder", game:GetService("CoreGui"));
+    local Library = Handler.CreateModule("Library", {
+        Settings = {
+            Box = {
+                Enabled = true; 
+                Color = Color3.fromRGB(255, 255, 255);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                FillColor = Color3.fromRGB(255, 255, 255);
+                FillTransparency = 1;
+                Filled = false;
+                Style = "Corner"; -- // Square or Corner
+            };
+            Healthbar = {
+                Enabled = true; 
+                Empty = Color3.fromRGB(255, 0, 0);
+                Color = Color3.fromRGB(0, 255, 0);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                ColorMode = "Gradient"; -- // Lerp or Gradient
+                Position = "Left";
+            };
+            Name = {
+                Enabled = true; 
+                Color = Color3.fromRGB(255, 255, 255);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                Position = "Top";
+                UseDisplay = false;
+                NameLength = 20;
+            };
+            Distance = {
+                Enabled = false; 
+                Color = Color3.fromRGB(255, 255, 255);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                Measurement = "Meters";
+                MaxDistance = 1000;
+                Position = "Right";
+            };
+            Weapon = {
+                Enabled = true; 
+                Color = Color3.fromRGB(255, 255, 255);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                Position = "Bottom";
+            };
+            Health = {
+                Enabled = false; 
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                Position = "Left";
+            };
+            Chams = {
+                Enabled = false; 
+                Color = Color3.fromRGB(255, 255, 255);
+                OutlineColor = Color3.fromRGB(0, 0, 0);
+                Transparency = 0.5;
+                OutlineTransparency = 0;
+                Depth = "AlwaysOnTop"; -- AlwaysOnTop or Occluded
+            };
+            Offscreen = {
+                Enabled = false; 
+                Color = Color3.fromRGB(255, 255, 255);
+                Size = 20;
+                Radius = 250;
+                Indicators = {};
+            };
+            Highlight = {
+                Enabled = false;
+                TargetColor = Color3.fromRGB(255, 94, 94);
+                Target = nil;
+                Friends = false;
+                FriendColor = Color3.fromRGB(56, 122, 255);
+            };
+            Measurements = {
+                Meters = {"m", 1};
+                Centimetres = {"cm", 3.5714285714};
+                Decimetres = {"dm", 10};
+                Feet = {"ft", 3.2808};
+                Inches = {"in", 39.3701};
+                Kilometres = {"km", 0.001};
+                Miles = {"mi", 0.000621371};
+                Yards = {"yd", 1.09361};
+                Millimetres = {"mm", 1000};
+                Nanometres = {"nm", 1000000000};
+                ["Nau miles"] = {"nmi", 0.00053996};
+                Micrometres = {"um", 1000000};
+                Fathom = {"f", 0.546807};
+                Rods = {"r", 0.198839};
+                Leagues = {"l", 0.00020712};
+                Furlongs = {"fur", 0.00497097};
+                ["Astm units"] = {"au", 0.000000000007};
+                ["Light years"] = {"ly", 0.00000000000000010570234};
+                Parsecs = {"pc", 0.00000000000000003240779};
+            };
+            Enabled = true;
+            BotEnabled = false;
+            TeamCheck = false;
+            FadeTime = 1000;
+        };
+        Cache = {};
+        Overrides = {};
+        Flags = {};
+        Utility = Utility;
+    });
+    do
+        -- // Add to ESP
+        Library.CreateRender = LPH_NO_VIRTUALIZE(function(Player, Character)
+            if Player ~= LocalPlayer then
+                local Slot = Library.Settings.Healthbar.Position or "Left";
+                local Position = "Vertical";
+                if Slot == "Top" or Slot == "Bottom" then
+                    Position = "Horizontal";
+                end;
+                local Objects = {
+                    Box = Utility.CreateRenderObject("Square", {
+                        Filled = false;
+                        Thickness = 1;
+                        ZIndex = 3;
+                    });
+                    BoxOutline = Utility.CreateRenderObject("Square", {
+                        Filled = false;
+                        Thickness = 3;
+                        ZIndex = 2;
+                    });
+                    BoxFill = Utility.CreateRenderObject("Square", {
+                        Filled = true;
+                        Thickness = 1;
+                        ZIndex = 1;
+                    });
+                    Healthbar = Utility.CreateRenderObject("Square", {
+                        Filled = true;
+                        Thickness = 1;
+                        ZIndex = 1;
+                    });
+                    GradientHealthbar = Utility.CreateRenderObject("Image", {
+                        Data = CurrentGradient;
+                        ZIndex = 1;
+                    });
+                    HealthbarGradientInvert = Utility.CreateRenderObject("Square", {
+                        Filled = false;
+                        Thickness = 3;
+                        ZIndex = 2;
+                    });
+                    HealthbarOutline = Utility.CreateRenderObject("Square", {
+                        Filled = false;
+                        Thickness = 3;
+                        ZIndex = 2;
+                    });
+                    Name = Utility.CreateRenderObject("Text", {
+                        ZIndex = 3;
+                    });
+                    Distance = Utility.CreateRenderObject("Text", {
+                        ZIndex = 3;
+                    });
+                    Weapon = Utility.CreateRenderObject("Text", {
+                        ZIndex = 3;
+                    });
+                    Health = Utility.CreateRenderObject("Text", {
+                        ZIndex = 3;
+                    });
+                    Chams = Utility.CreateObject("Highlight", {
+                        Parent = Container;
+                    });
+                    Offscreen = Utility.CreateRenderObject("Triangle", {
+                        ZIndex = 3;
+                    });
+                    Corner = {};
+                };
+
+                -- // Cache
+                for Index = 1, 16 do
+                    Objects.Corner[Index] = Utility.CreateRenderObject("Line", {Thickness = 1});
+                end;
+                Library.Cache[Player] = {Model = Character; Data = Objects; Type = FindFirstChild(Players, Player.Name) and "Player" or "Bot"; Info = {Tick = tick();Passed = false;CurrentHealth = 0;MaxHealth = 0;BoundingBox = nil;}};
+            end;
+        end);
+
+        -- // Gradient handler
+        Library.CreateGradient = LPH_NO_VIRTUALIZE(function(Position, Size, Color)
+            Size = Size or {100, 100};
+            Color = Color or function ()
+                return {0, 0, 0, 255};
+            end;
+
+            -- // Pixels
+            local Pixels = Create(Size[2]);
+            for y = 1, Size[2] do
+                Pixels[y] = Create(Size[1])
+                for x = 1, Size[1] do
+                    Pixels[y][x] = Color(x, y);
+                end;
+            end;
+            local function SetPixel(Position, Color)
+                Pixels[Position[2]][Position[1]] = Color;
+            end;
+
+            -- // Image
+            local function Save()
+                local Padding = Ceil(Size[1] / 4) * 4 - Size[1];
+                local FileSize = 3 * Size[1] * Size[2];
+                if Position == "Horizontal" then
+                    Padding = Ceil(Size[2] / 4) * 4 - Size[2];
+                end;
+
+                local Offset = PackSize("<I2I4I4I4") + PackSize("<I2I4I4I4");
+                local Data = Pack("<I2I4I4I4",
+                    0x4D42,
+                    FileSize + Offset,
+                    0,
+                    Offset
+                ) ..
+                Pack("<I4i4i4I2I2I4I4I4I4I4I4",
+                    PackSize("<I4i4i4I2I2I4I4I4I4I4I4"),
+                    Size[1],
+                    Size[2],
+                    1,
+                    24,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                );
+
+                if Position == "Horizontal" then
+                    for x = 1, Size[1] do
+                        for y = 1, Size[2] do
+                            local Color = Pixels[y][x];
+                            Data ..= Pack("<I1I1I1", Color[3], Color[2], Color[1])
+                        end
+                        if Padding ~= 0 then
+                            Data ..= Rep("\0", Padding)
+                        end;
+                    end;
+                else
+                    for y = 1, Size[2] do
+                        for x = 1, Size[1] do
+                            local Color = Pixels[y][x];
+                            Data ..= Pack("<I1I1I1", Color[3], Color[2], Color[1])
+                        end
+                        if Padding ~= 0 then
+                            Data ..= Rep("\0", Padding)
+                        end;
+                    end;
+                end;
+                return Data;
+            end;
+            return {
+                Save = Save;
+                SetPixel = SetPixel;
+            };
+        end);
+
+        -- // Remove from ESP
+        Library.RemoveRender = LPH_NO_VIRTUALIZE(function(Player)
+            if Library.Cache[Player] then
+                local Objects = Library.Cache[Player].Data;
+                for _, Object in next, Objects do
+                    if _ == "Corner" and _ ~= "Chams" then
+                        for _, Corner in next, Object do
+                            DestroyRenderObject(Corner);
+                        end;
+                    elseif _ == "Chams" then
+                        Object:Destroy();
+                    else
+                        DestroyRenderObject(Object);
+                    end;
+                end;
+                Library.Cache[Player] = nil;
+            end;
+        end);
+
+        -- // Update gradient
+        Library.UpdateGradient = LPH_NO_VIRTUALIZE(function()
+            local Slot = Library.Settings.Healthbar.Position or "Left";
+            local Position = "Vertical";
+            if Slot == "Top" or Slot == "Bottom" then
+                Position = "Horizontal";
+            end;
+            local Canvas = Library.CreateGradient(Position, {90, 90}, function(X, Y) local Color = Library.Settings.Healthbar.Color:Lerp(Library.Settings.Healthbar.Empty, Y / 100); return {Floor(Color.r*255), Floor(Color.g*255), Floor(Color.b*255)}; end);
+            local Saved = Canvas:Save();
+            for Player, Data in next, Library.Cache do
+                local Objects = Data.Data;
+                if Library.Settings.Healthbar.ColorMode == "Gradient" then
+                    SetRenderProperty(Objects.GradientHealthbar, "Data", Saved);
+                    CurrentGradient = Saved
+                end;
+            end;
+        end);
+        
+        -- // Get character
+        Library.GetCharacter = LPH_NO_VIRTUALIZE(function(Player)
+            return Player.Character;
+        end);
+
+        -- // Get health
+        Library.GetHealth = function(Character, Type)
+            if Type == "Player" then
+                if Character then
+                    local Humanoid = FindFirstChildOfClass(Character, "Humanoid");
+                    if Humanoid then
+                        return Floor(Humanoid.Health), Floor(Humanoid.MaxHealth);
+                    end;
+                end;
+            end;
+            return 100, 100;
+        end;
+
+        -- // Connections
+        for _, Player in next, GetPlayers(Players) do
+            Library.CreateRender(Player, Library.GetCharacter(Player));
+        end;
+        Utility.Connection(Players, "PlayerAdded", function(Player)
+            Library.CreateRender(Player, Library.GetCharacter(Player));
+        end);
+        Utility.Connection(Players, "PlayerRemoving", function(Player)
+            Library.RemoveRender(Player);
+        end);
+    end;
+
+    local RenderStepped = Utility.Connection(RunService, "RenderStepped", function()
+        for Player, Data in next, Library.Cache do   
+            local Character = Library.GetCharacter(Player);
+            local Objects = Data.Data;
+            local Info = Data.Info;
+            local Box = Objects.Box;
+            local BoxOutline = Objects.BoxOutline;
+            local BoxFill = Objects.BoxFill;
+            local BoxCorners = Objects.Corner;
+            local Healthbar = Objects.Healthbar;
+            local GradientHealthbar = Objects.GradientHealthbar;
+            local HealthbarGradientInvert = Objects.HealthbarGradientInvert;
+            local HealthbarOutline = Objects.HealthbarOutline;
+            local Name = Objects.Name;
+            local Distance = Objects.Distance;
+            local Weapon = Objects.Weapon;
+            local HealthValue = Objects.Health;
+            local Chams = Objects.Chams;
+            local Offscreen = Objects.Offscreen;
+            
+            -- // Team Check
+            if Library.Settings.TeamCheck and Player.Team == LocalPlayer.Team then
+                for _, Object in next, Objects do
+                    if _ == "Corner" and _ ~= "Chams" and _ ~= "Offscreen" then
+                        for _, Corner in next, Object do
+                            SetRenderProperty(Corner, "Visible", false);
+                        end;
+                    elseif _ == "Chams" and _ ~= "Offscreen" then
+                        Object.Enabled = false;
+                    elseif _ ~= "Offscreen" then
+                        SetRenderProperty(Object, "Visible", false);
+                    end;
+                end;
+                continue; 
+            end;
+
+            -- Parts
+            local Root;
+            local Humanoid;
+            local Head;
+            local LocalHead;
+
+            -- Alive check
+            if Player and Character then
+                Root = FindFirstChild(Character, "HumanoidRootPart");
+                Humanoid = FindFirstChildOfClass(Character, "Humanoid");
+                Head = FindFirstChild(Character, "Head");
+
+                -- Dead check
+                if Library.Settings.Enabled and (Root and Humanoid and Head) then
+                    local CurrentHealth, Maxhealth = Floor(Humanoid.Health), Floor(Humanoid.MaxHealth);
+                    if CurrentHealth and Maxhealth then
+                        if CurrentHealth <= 0 then
+                            rawset(Info, "Passed", false);
+                        else
+                            rawset(Info, "Passed", true);
+                            rawset(Info, "CurrentHealth", CurrentHealth);
+                            rawset(Info, "Maxhealth", Maxhealth);
+                            rawset(Info, "RootCFrame", Root.CFrame);
+                        end;
+                    end;
+                else
+                    rawset(Info, "Passed", false);
+                end;
+            else
+                rawset(Info, "Passed", false);
+            end;
+
+            -- Transparency 
+            local TransparencyMultplier = 1;
+            if rawget(Info, "Passed") then
+                rawset(Info, "Tick", tick());
+            else
+                local FadeTime = Library.Settings.FadeTime / 1000;
+                local Value = Info.Tick - tick()
+                --
+                if Value <= FadeTime then
+                    TransparencyMultplier = Clamp((Value + FadeTime) * 1 / FadeTime, 0, 1);
+                else
+                    rawset(Info, "Passed", nil);
+                    rawset(Info, "CurrentHealth", nil);
+                    rawset(Info, "Maxhealth", nil);
+                    rawset(Info, "RootCFrame", nil);
+                end;
+            end;
+
+            -- // Main
+            if rawget(Info, "RootCFrame") and rawget(Info, "CurrentHealth") and rawget(Info, "Maxhealth") then
+                local Root = FindFirstChild(Character, "HumanoidRootPart");
+                local Head = FindFirstChild(Character, "Head");
+                local BodyParts = {}
+
+                local RootPosition, Onscreen = WorldToViewPort(CurrentCamera, rawget(Info, "RootCFrame").Position);
+                local TopOffset = 7;
+                local BottomOffset = 2;
+                local LeftOffsetX, LeftOffsetY = 2, 0;
+                local RightOffsetX, RightOffsetY = 2, 0;
+                local Size = Vector3.new(4, 7, 1)
+
+                -- // Locals
+                local Health, MaxHealth = Library.GetHealth(Player.Character, Data.Type);
+                local StudConversion = Floor((rawget(Info, "RootCFrame").p - CurrentCamera.CFrame.p).magnitude);
+                local MeterConversion = Floor(StudConversion / 3.5714285714);   
+                local CurrentConversion = Floor(MeterConversion * Library.Settings.Measurements[Library.Settings.Distance.Measurement][2]);
+                local IsTarget = Library.Settings.Highlight.Enabled and Library.Settings.Highlight.Target == Player and true or false;
+                local IsFriends = Library.Settings.Highlight.Friends and LocalPlayer:IsFriendsWith(tostring(Player.UserId)) and true or false;
+
+                -- // Box sizing
+                local BoxSize
+                local BoxPosition
+                local BoxCenter
+                local BoundingBox = {(rawget(Info, "RootCFrame") + Vector3.new(0, -0.125, 0)), Size} or Info.BoundingBox
+                local Width = (workspace.CurrentCamera.CFrame - workspace.CurrentCamera.CFrame.Position) * Vector3.new((math.clamp(BoundingBox[2].X, 1, 10) + 0.5) / 2, 0, 0)
+                local Height = (workspace.CurrentCamera.CFrame - workspace.CurrentCamera.CFrame.Position) * Vector3.new(0, (math.clamp(BoundingBox[2].Y, 1, 10) + 0.5) / 2, 0)
+                Width = Abs(workspace.CurrentCamera:WorldToViewportPoint(BoundingBox[1].Position + Width).X - workspace.CurrentCamera:WorldToViewportPoint(BoundingBox[1].Position - Width).X)
+                Height = Abs(workspace.CurrentCamera:WorldToViewportPoint(BoundingBox[1].Position + Height).Y - workspace.CurrentCamera:WorldToViewportPoint(BoundingBox[1].Position - Height).Y)
+                --
+                BoxSize = Utility.Round(Vector2.new(Width, Height))
+                BoxCenter = workspace.CurrentCamera:WorldToViewportPoint(BoundingBox[1].Position)
+                BoxPosition = Utility.Round(Vector2.new(BoxCenter.X, BoxCenter.Y) - (BoxSize / 2))
+                --
+                local TL = Utility.Round(Vector(BoxCenter.X - BoxSize.X / 2, BoxCenter.Y - BoxSize.Y / 2));
+                local BL = Utility.Round(Vector(BoxCenter.X - BoxSize.X / 2, BoxCenter.Y + BoxSize.Y / 2));
+                local TR = Utility.Round(Vector(BoxCenter.X + BoxSize.X / 2, BoxCenter.Y - BoxSize.Y / 2));
+                local BR = Utility.Round(Vector(BoxCenter.X + BoxSize.X / 2, BoxCenter.Y + BoxSize.Y / 2));
+                --
+                if Info.Passed then
+                    Info.BoundingBox = BoundingBox
+                end
+
+                -- // Offscreen
+                SetRenderProperty(Offscreen, "Visible", not Onscreen and Library.Settings.Offscreen.Enabled and Library.Settings.Enabled or false);
+                
+                if GetRenderProperty(Offscreen, "Visible") then
+                    local Proj = PointToObjectSpace(CurrentCamera.CFrame, rawget(Info, "RootCFrame").Position);
+                    local Angle = Atan2(Proj.Z, Proj.X);
+                    local Direction = Vector(Cos(Angle), Sin(Angle));
+                    local Position = CurrentCamera.ViewportSize / 2 + Direction * Library.Settings.Offscreen.Radius;
+
+                    -- // Points
+                    local PointA = Position; 
+                    local PointB = Position - Utility.RotateVector(Direction, 27) * Library.Settings.Offscreen.Size; 
+                    local PointC = Position - Utility.RotateVector(Direction, -27) * Library.Settings.Offscreen.Size;
+                    local PointD = Vector2.new((PointA.X + PointB.X + PointC.X) / 3, (PointA.Y + PointB.Y + PointC.Y) / 3);
+                    local PointSize = Vector2.new(Library.Settings.Offscreen.Size, Library.Settings.Offscreen.Size);
+                    local PointPosition = (PointD - Vector2.new(Library.Settings.Offscreen.Size / 2, Library.Settings.Offscreen.Size / 2)); 
+                    local BottomOffset = 5;
+
+                    -- // Arrow
+                    SetRenderProperty(Offscreen, "PointA", PointA);
+                    SetRenderProperty(Offscreen, "PointB", PointB);
+                    SetRenderProperty(Offscreen, "PointC", PointC);
+                    SetRenderProperty(Offscreen, "Color", Library.Settings.Offscreen.Color);
+                    SetRenderProperty(Offscreen, "Filled", true);
+                    SetRenderProperty(Offscreen, "Thickness", 1);
+                    SetRenderProperty(Offscreen, "ZIndex", 2);   
+                end;  
+
+                if Onscreen and Library.Settings.Distance.MaxDistance > CurrentConversion then
+                    -- // Box
+                    SetRenderProperty(Box, "Visible", Library.Settings.Box.Style == "Square" and Library.Settings.Box.Enabled or false);
+                    SetRenderProperty(BoxOutline, "Visible", Library.Settings.Box.Style == "Square" and Library.Settings.Box.Enabled or false);
+                    if GetRenderProperty(Box, "Visible") then
+                        SetRenderProperty(Box, "Size", BoxSize);
+                        SetRenderProperty(Box, "Position", BoxPosition);
+                        SetRenderProperty(Box, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(Box, "Transparency", TransparencyMultplier)
+
+                        -- // Box Outline
+                        SetRenderProperty(BoxOutline, "Size", BoxSize);
+                        SetRenderProperty(BoxOutline, "Position", BoxPosition);
+                        SetRenderProperty(BoxOutline, "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxOutline, "Transparency", TransparencyMultplier)
+                    end;   
+
+                    -- // Box Fill
+                    SetRenderProperty(BoxFill, "Visible", Library.Settings.Box.Filled);
+                    if GetRenderProperty(BoxFill, "Visible") then
+                        SetRenderProperty(BoxFill, "Size", BoxSize);
+                        SetRenderProperty(BoxFill, "Position", BoxPosition);
+                        SetRenderProperty(BoxFill, "Color", Library.Settings.Box.FillColor);
+                        SetRenderProperty(BoxFill, "Transparency", TransparencyMultplier - Library.Settings.Box.FillTransparency);
+                    end; 
+
+                    -- // Corner
+                    if Library.Settings.Box.Style == "Corner" and Library.Settings.Box.Enabled  then
+                        SetRenderProperty(BoxCorners[1], "Visible", true);
+                        SetRenderProperty(BoxCorners[1], "From", TL);
+                        SetRenderProperty(BoxCorners[1], "To", GetRenderProperty(BoxCorners[1], "From") + Vector(0, BoxSize.X / 3));
+                        SetRenderProperty(BoxCorners[1], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[1], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[1], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[1], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[2], "Visible", true);
+                        SetRenderProperty(BoxCorners[2], "From", TL + Vector(1, 0));
+                        SetRenderProperty(BoxCorners[2], "To", GetRenderProperty(BoxCorners[2], "From") + Vector(BoxSize.X / 3, 0));
+                        SetRenderProperty(BoxCorners[2], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[2], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[2], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[2], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[3], "Visible", true);
+                        SetRenderProperty(BoxCorners[3], "From", TR);
+                        SetRenderProperty(BoxCorners[3], "To", GetRenderProperty(BoxCorners[3], "From") + Vector(-BoxSize.X / 3, 0));
+                        SetRenderProperty(BoxCorners[3], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[3], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[3], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[3], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[4], "Visible", true);
+                        SetRenderProperty(BoxCorners[4], "From", TR);
+                        SetRenderProperty(BoxCorners[4], "To", GetRenderProperty(BoxCorners[4], "From") + Vector(0, BoxSize.X / 3));
+                        SetRenderProperty(BoxCorners[4], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[4], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[4], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[4], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[5], "Visible", true);
+                        SetRenderProperty(BoxCorners[5], "From", BR + Vector(0,1));
+                        SetRenderProperty(BoxCorners[5], "To", GetRenderProperty(BoxCorners[5], "From") + Vector(0, -BoxSize.X / 3))
+                        SetRenderProperty(BoxCorners[5], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[5], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[5], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[5], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[6], "Visible", true);
+                        SetRenderProperty(BoxCorners[6], "From", BR);
+                        SetRenderProperty(BoxCorners[6], "To", GetRenderProperty(BoxCorners[6], "From") + Vector(-BoxSize.X / 3, 0));
+                        SetRenderProperty(BoxCorners[6], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[6], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[6], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[6], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[7], "Visible", true);
+                        SetRenderProperty(BoxCorners[7], "From", BL);
+                        SetRenderProperty(BoxCorners[7], "To", GetRenderProperty(BoxCorners[7], "From") + Vector(0, -BoxSize.X / 3))
+                        SetRenderProperty(BoxCorners[7], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[7], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[7], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[7], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[8], "Visible", true);
+                        SetRenderProperty(BoxCorners[8], "From", BL);
+                        SetRenderProperty(BoxCorners[8], "To", GetRenderProperty(BoxCorners[8], "From") + Vector(BoxSize.X / 3, 0));
+                        SetRenderProperty(BoxCorners[8], "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Box.Color);
+                        SetRenderProperty(BoxCorners[8], "Thickness", 0);
+                        SetRenderProperty(BoxCorners[8], "ZIndex", 3);
+                        SetRenderProperty(BoxCorners[8], "Transparency", TransparencyMultplier)
+                    
+                        -- Corner outline
+                        SetRenderProperty(BoxCorners[9], "Visible", true);
+                        SetRenderProperty(BoxCorners[9], "From", GetRenderProperty(BoxCorners[1], "From") + Vector(0, -1));
+                        SetRenderProperty(BoxCorners[9], "To", GetRenderProperty(BoxCorners[1], "To") + Vector(0, 1));
+                        SetRenderProperty(BoxCorners[9], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[9], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[9], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[9], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[10], "Visible", true);
+                        SetRenderProperty(BoxCorners[10], "From", GetRenderProperty(BoxCorners[2], "From"));
+                        SetRenderProperty(BoxCorners[10], "To", GetRenderProperty(BoxCorners[2], "To") + Vector(1, 0));
+                        SetRenderProperty(BoxCorners[10], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[10], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[10], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[10], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[11], "Visible", true);
+                        SetRenderProperty(BoxCorners[11], "From", GetRenderProperty(BoxCorners[3], "From") + Vector(2, 0));
+                        SetRenderProperty(BoxCorners[11], "To", GetRenderProperty(BoxCorners[3], "To") + Vector(-1, 0));
+                        SetRenderProperty(BoxCorners[11], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[11], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[11], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[11], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[12], "Visible", true);
+                        SetRenderProperty(BoxCorners[12], "From", GetRenderProperty(BoxCorners[4], "From"));
+                        SetRenderProperty(BoxCorners[12], "To", GetRenderProperty(BoxCorners[4], "To") + Vector(0, 1));
+                        SetRenderProperty(BoxCorners[12], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[12], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[12], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[12], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[13], "Visible", true);
+                        SetRenderProperty(BoxCorners[13], "From", GetRenderProperty(BoxCorners[5], "From"));
+                        SetRenderProperty(BoxCorners[13], "To", GetRenderProperty(BoxCorners[5], "To") + Vector(0, -1));
+                        SetRenderProperty(BoxCorners[13], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[13], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[13], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[13], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[14], "Visible", true);
+                        SetRenderProperty(BoxCorners[14], "From", GetRenderProperty(BoxCorners[6], "From") + Vector(2, 0));
+                        SetRenderProperty(BoxCorners[14], "To", GetRenderProperty(BoxCorners[6], "To") + Vector(-1, 0));
+                        SetRenderProperty(BoxCorners[14], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[14], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[14], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[14], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[15], "Visible", true);
+                        SetRenderProperty(BoxCorners[15], "From", GetRenderProperty(BoxCorners[7], "From"));
+                        SetRenderProperty(BoxCorners[15], "To", GetRenderProperty(BoxCorners[7], "To") + Vector(0, -1));
+                        SetRenderProperty(BoxCorners[15], "Color", Library.Settings.Box.OutlineColor);
+                        SetRenderProperty(BoxCorners[15], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[15], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[15], "Transparency", TransparencyMultplier)
+                    
+                        SetRenderProperty(BoxCorners[16], "Visible", true);
+                        SetRenderProperty(BoxCorners[16], "From", GetRenderProperty(BoxCorners[8], "From") + Vector(-1, 0));
+                        SetRenderProperty(BoxCorners[16], "To", GetRenderProperty(BoxCorners[8], "To") + Vector(1, 0));
+                        SetRenderProperty(BoxCorners[16], "Color", Color3.new(0, 0, 0));
+                        SetRenderProperty(BoxCorners[16], "Thickness", 3);
+                        SetRenderProperty(BoxCorners[16], "ZIndex", 2);
+                        SetRenderProperty(BoxCorners[16], "Transparency", TransparencyMultplier)
+                    else
+                        for _, Object in next, BoxCorners do
+                            SetRenderProperty(Object, "Visible", false);
+                        end;
+                    end;
+                    
+                    -- // Healthbar Lerp
+                    SetRenderProperty(Healthbar, "Visible", Library.Settings.Healthbar.ColorMode == "Lerp" and Library.Settings.Healthbar.Enabled or false);
+                    SetRenderProperty(HealthbarOutline, "Visible", Library.Settings.Healthbar.Enabled);
+                    if GetRenderProperty(Healthbar, "Visible") then 
+                        if Library.Settings.Healthbar.Position == "Left" then
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(3, BoxSize.Y + 2 ));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-5, -1));
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            
+                            SetRenderProperty(Healthbar, "Size", Vector(1, -((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (Health / MaxHealth))));
+                            SetRenderProperty(Healthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, -1 + GetRenderProperty(HealthbarOutline, "Size").Y));
+                            SetRenderProperty(Healthbar, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(Healthbar, "Filled", true);
+                            SetRenderProperty(Healthbar, "Thickness", 1);
+                            SetRenderProperty(Healthbar, "ZIndex", 2);
+                            SetRenderProperty(Healthbar, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));
+                            
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            LeftOffsetX = LeftOffsetX + 4;
+                        elseif Library.Settings.Healthbar.Position == "Top" then
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(BoxSize.X + 2, 3));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-1, -5));
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            
+                            SetRenderProperty(Healthbar, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (rawget(Info, "CurrentHealth") / rawget(Info, "Maxhealth"))), 1));
+                            SetRenderProperty(Healthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(Healthbar, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(Healthbar, "Filled", true);
+                            SetRenderProperty(Healthbar, "Thickness", 1);
+                            SetRenderProperty(Healthbar, "ZIndex", 2);
+                            SetRenderProperty(Healthbar, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));
+                            
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            TopOffset = TopOffset + 4;
+                        elseif Library.Settings.Healthbar.Position == "Bottom" then
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(BoxSize.X + 2, 3));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-1, BoxSize.Y + 2));
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            
+                            SetRenderProperty(Healthbar, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (rawget(Info, "CurrentHealth") / rawget(Info, "Maxhealth"))), 1));
+                            SetRenderProperty(Healthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(Healthbar, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(Healthbar, "Filled", true);
+                            SetRenderProperty(Healthbar, "Thickness", 1);
+                            SetRenderProperty(Healthbar, "ZIndex", 2);
+                            SetRenderProperty(Healthbar, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));
+                            
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            BottomOffset = BottomOffset + 4;
+                        elseif Library.Settings.Healthbar.Position == "Right" then
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(3, BoxSize.Y + 2 ));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(BoxSize.X + 2, -1));
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            
+                            SetRenderProperty(Healthbar, "Size", Vector(1, -((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (Health / MaxHealth))));
+                            SetRenderProperty(Healthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, -1 + GetRenderProperty(HealthbarOutline, "Size").Y));
+                            SetRenderProperty(Healthbar, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(Healthbar, "Filled", true);
+                            SetRenderProperty(Healthbar, "Thickness", 1);
+                            SetRenderProperty(Healthbar, "ZIndex", 2);
+                            SetRenderProperty(Healthbar, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));
+                            
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            RightOffsetX = RightOffsetX + 4;
+                        end
+                    end;
+
+                    -- // Healthbar gradient
+                    SetRenderProperty(GradientHealthbar, "Visible", Library.Settings.Healthbar.ColorMode == "Gradient" and Library.Settings.Healthbar.Enabled or false);
+                    SetRenderProperty(HealthbarGradientInvert, "Visible", Library.Settings.Healthbar.ColorMode == "Gradient" and Library.Settings.Healthbar.Enabled or false);
+                    if GetRenderProperty(GradientHealthbar, "Visible") then 
+                        if Library.Settings.Healthbar.Position == "Left" then
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(3, BoxSize.Y + 2 ));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-5, -1));
+                            
+                            SetRenderProperty(GradientHealthbar, "Size", Vector(1, -((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (100 / 100))));
+                            SetRenderProperty(GradientHealthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, -1 + GetRenderProperty(HealthbarOutline, "Size").Y));
+                            SetRenderProperty(GradientHealthbar, "ZIndex", 2);
+                            SetRenderProperty(GradientHealthbar, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarGradientInvert, "Size", Vector(1, ((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (1 - Health / MaxHealth))));
+                            SetRenderProperty(HealthbarGradientInvert, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, 1));
+                            SetRenderProperty(HealthbarGradientInvert, "ZIndex", 3);
+                            SetRenderProperty(HealthbarGradientInvert, "Thickness", 1);
+                            SetRenderProperty(HealthbarGradientInvert, "Filled", true);
+                            SetRenderProperty(HealthbarGradientInvert, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            LeftOffsetX = LeftOffsetX + 4;
+                        elseif Library.Settings.Healthbar.Position == "Top" then
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(BoxSize.X + 2, 3));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-1, -5));
+                            
+                            SetRenderProperty(GradientHealthbar, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (100 / 100)), 1));
+                            SetRenderProperty(GradientHealthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(GradientHealthbar, "ZIndex", 2);
+                            SetRenderProperty(GradientHealthbar, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarGradientInvert, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (1 - rawget(Info, "CurrentHealth") / rawget(Info, "Maxhealth"))), 1));
+                            SetRenderProperty(HealthbarGradientInvert, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(HealthbarGradientInvert, "ZIndex", 3);
+                            SetRenderProperty(HealthbarGradientInvert, "Thickness", 1);
+                            SetRenderProperty(HealthbarGradientInvert, "Filled", true);
+                            SetRenderProperty(HealthbarGradientInvert, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            TopOffset = TopOffset + 4;
+                        elseif Library.Settings.Healthbar.Position == "Bottom" then
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(BoxSize.X + 2, 3));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(-1, BoxSize.Y + 2));
+                            
+                            SetRenderProperty(GradientHealthbar, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (100 / 100)), 1));
+                            SetRenderProperty(GradientHealthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(GradientHealthbar, "ZIndex", 2);
+                            SetRenderProperty(GradientHealthbar, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarGradientInvert, "Size", Vector2.new(((GetRenderProperty(HealthbarOutline, "Size").X - 2) * (1 - rawget(Info, "CurrentHealth") / rawget(Info, "Maxhealth"))), 1));
+                            SetRenderProperty(HealthbarGradientInvert, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector2.new(1, 1));
+                            SetRenderProperty(HealthbarGradientInvert, "ZIndex", 3);
+                            SetRenderProperty(HealthbarGradientInvert, "Thickness", 1);
+                            SetRenderProperty(HealthbarGradientInvert, "Filled", true);
+                            SetRenderProperty(HealthbarGradientInvert, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            BottomOffset = BottomOffset + 4;
+                        elseif Library.Settings.Healthbar.Position == "Right" then
+                            SetRenderProperty(HealthbarOutline, "Transparency", TransparencyMultplier)
+                            SetRenderProperty(HealthbarOutline, "Size", Vector2.new(3, BoxSize.Y + 2 ));
+                            SetRenderProperty(HealthbarOutline, "Position", BoxPosition + Vector2.new(BoxSize.X + 2, -1));
+                            
+                            SetRenderProperty(GradientHealthbar, "Size", Vector(1, -((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (100 / 100))));
+                            SetRenderProperty(GradientHealthbar, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, -1 + GetRenderProperty(HealthbarOutline, "Size").Y));
+                            SetRenderProperty(GradientHealthbar, "ZIndex", 2);
+                            SetRenderProperty(GradientHealthbar, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarGradientInvert, "Size", Vector(1, ((GetRenderProperty(HealthbarOutline, "Size").Y - 2) * (1 - Health / MaxHealth))));
+                            SetRenderProperty(HealthbarGradientInvert, "Position", GetRenderProperty(HealthbarOutline, "Position") + Vector(1, 1));
+                            SetRenderProperty(HealthbarGradientInvert, "ZIndex", 3);
+                            SetRenderProperty(HealthbarGradientInvert, "Thickness", 1);
+                            SetRenderProperty(HealthbarGradientInvert, "Filled", true);
+                            SetRenderProperty(HealthbarGradientInvert, "Transparency", TransparencyMultplier)
+    
+                            SetRenderProperty(HealthbarOutline, "Color", Library.Settings.Healthbar.OutlineColor);
+                            SetRenderProperty(HealthbarOutline, "Filled", true);
+                            SetRenderProperty(HealthbarOutline, "Thickness", 1);
+                            SetRenderProperty(HealthbarOutline, "ZIndex", 1);
+                            RightOffsetX = RightOffsetX + 4;
+                        end
+                    end;
+
+                    -- // Name
+                    SetRenderProperty(Name, "Visible", Library.Settings.Name.Enabled);
+                    if GetRenderProperty(Name, "Visible") then 
+                        do
+                            SetRenderProperty(Name, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Name.Color or Color3.new(1, 1, 1));
+                        end
+                        -- Position
+                        if Library.Settings.Name.Position == "Top" then
+                            SetRenderProperty(Name, "Position", BoxPosition + Vector2.new(Width / 2, - TopOffset - 10));
+                            SetRenderProperty(Name, "Center", true);    
+                            SetRenderProperty(Name, "Size", 13);
+                            SetRenderProperty(Name, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Name, "OutlineColor", Color3.new());              
+                            SetRenderProperty(Name, "Outline", true);   
+                            TopOffset = TopOffset + 10;
+                        elseif Library.Settings.Name.Position == "Bottom" then
+                            SetRenderProperty(Name, "Position", BoxPosition + Vector2.new(Width / 2, BoxSize.Y + BottomOffset + 2));
+                            SetRenderProperty(Name, "Center", true);    
+                            SetRenderProperty(Name, "Size", 13);
+                            SetRenderProperty(Name, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Name, "OutlineColor", Color3.new());              
+                            SetRenderProperty(Name, "Outline", true);   
+                            BottomOffset = BottomOffset + 10;
+                        elseif Library.Settings.Name.Position == "Right" then
+                            SetRenderProperty(Name, "Position", Vector2.new(BoxCenter.X + BoxSize.X / 2 + 2 + GetRenderProperty(Name, "TextBounds").X / 2 + RightOffsetX, BoxPosition.Y -2 + RightOffsetY));
+                            SetRenderProperty(Name, "Center", true);    
+                            SetRenderProperty(Name, "Size", 13);
+                            SetRenderProperty(Name, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Name, "OutlineColor", Color3.new());              
+                            SetRenderProperty(Name, "Outline", true);   
+                            RightOffsetY = RightOffsetY + 10;
+                        elseif Library.Settings.Name.Position == "Left" then
+                            SetRenderProperty(Name, "Position", Vector2.new(BoxCenter.X - BoxSize.X / 2 - 2 - GetRenderProperty(Name, "TextBounds").X / 2 - LeftOffsetX, BoxPosition.Y -2 + LeftOffsetY));
+                            SetRenderProperty(Name, "Center", true);    
+                            SetRenderProperty(Name, "Size", 13);
+                            SetRenderProperty(Name, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Name, "OutlineColor", Color3.new());              
+                            SetRenderProperty(Name, "Outline", true);   
+                            LeftOffsetY = LeftOffsetY + 10;
+                        end;
+
+                        local Text = Library.Settings.Name.UseDisplay and Player.DisplayName or Player.Name;
+                        Text = Sub(Text .. Rep("", Library.Settings.Name.NameLength), 1, Library.Settings.Name.NameLength);
+                        SetRenderProperty(Name, "Text", Text);
+                        SetRenderProperty(Name, "Transparency", TransparencyMultplier);
+                    end;
+
+                    -- // Distance
+                    SetRenderProperty(Distance, "Visible", Library.Settings.Distance.Enabled);
+                    if GetRenderProperty(Distance, "Visible") then 
+                        if Library.Settings.Distance.Position == "Bottom" then
+                            SetRenderProperty(Distance, "Position", BoxPosition + Vector2.new(Width / 2, BoxSize.Y + BottomOffset + 2));
+                            SetRenderProperty(Distance, "Center", true);    
+                            SetRenderProperty(Distance, "Size", 13);
+                            SetRenderProperty(Distance, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Distance, "Text", ("%s%s"):format(tostring(CurrentConversion), Library.Settings.Measurements[Library.Settings.Distance.Measurement][1]))
+                            SetRenderProperty(Distance, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Distance.Color);        
+                            SetRenderProperty(Distance, "OutlineColor", Library.Settings.Distance.OutlineColor);              
+                            SetRenderProperty(Distance, "Outline", true);   
+                            SetRenderProperty(Distance, "Transparency", TransparencyMultplier)   
+                            BottomOffset = BottomOffset + 10;
+                        elseif Library.Settings.Distance.Position == "Top" then
+                            SetRenderProperty(Distance, "Position", BoxPosition + Vector2.new(Width / 2, - TopOffset - 10));
+                            SetRenderProperty(Distance, "Center", true);    
+                            SetRenderProperty(Distance, "Size", 13);
+                            SetRenderProperty(Distance, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Distance, "Text", ("%s%s"):format(tostring(CurrentConversion), Library.Settings.Measurements[Library.Settings.Distance.Measurement][1]))
+                            SetRenderProperty(Distance, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Distance.Color);        
+                            SetRenderProperty(Distance, "OutlineColor", Library.Settings.Distance.OutlineColor);              
+                            SetRenderProperty(Distance, "Outline", true);   
+                            SetRenderProperty(Distance, "Transparency", TransparencyMultplier)   
+                            TopOffset = TopOffset + 10;
+                        elseif Library.Settings.Distance.Position == "Left" then
+                            SetRenderProperty(Distance, "Position", Vector2.new(BoxCenter.X - BoxSize.X / 2 - 2 - GetRenderProperty(Distance, "TextBounds").X / 2 - LeftOffsetX, BoxPosition.Y -2 + LeftOffsetY));
+                            SetRenderProperty(Distance, "Center", true);    
+                            SetRenderProperty(Distance, "Size", 13);
+                            SetRenderProperty(Distance, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Distance, "Text", ("%s%s"):format(tostring(CurrentConversion), Library.Settings.Measurements[Library.Settings.Distance.Measurement][1]))
+                            SetRenderProperty(Distance, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Distance.Color);        
+                            SetRenderProperty(Distance, "OutlineColor", Library.Settings.Distance.OutlineColor);              
+                            SetRenderProperty(Distance, "Outline", true);   
+                            SetRenderProperty(Distance, "Transparency", TransparencyMultplier)   
+                            LeftOffsetY = LeftOffsetY + 10;
+                        elseif Library.Settings.Distance.Position == "Right" then
+                            SetRenderProperty(Distance, "Position", Vector2.new(BoxCenter.X + BoxSize.X / 2 + 2 + GetRenderProperty(Distance, "TextBounds").X / 2 + RightOffsetX, BoxPosition.Y -2 + RightOffsetY));
+                            SetRenderProperty(Distance, "Center", true);    
+                            SetRenderProperty(Distance, "Size", 13);
+                            SetRenderProperty(Distance, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Distance, "Text", ("%s%s"):format(tostring(CurrentConversion), Library.Settings.Measurements[Library.Settings.Distance.Measurement][1]))
+                            SetRenderProperty(Distance, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Distance.Color);        
+                            SetRenderProperty(Distance, "OutlineColor", Library.Settings.Distance.OutlineColor);              
+                            SetRenderProperty(Distance, "Outline", true);   
+                            SetRenderProperty(Distance, "Transparency", TransparencyMultplier)   
+                            RightOffsetY = RightOffsetY + 10;
+                        end
+                    end; 
+                    
+                    -- // Weapon
+                    SetRenderProperty(Weapon, "Visible", Library.Settings.Weapon.Enabled);
+                    if GetRenderProperty(Weapon, "Visible") then 
+                        if Library.Settings.Weapon.Position == "Bottom" then
+                            SetRenderProperty(Weapon, "Position", BoxPosition + Vector2.new(Width / 2, BoxSize.Y + BottomOffset + 2));
+                            SetRenderProperty(Weapon, "Center", true);    
+                            SetRenderProperty(Weapon, "Size", 13);
+                            SetRenderProperty(Weapon, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Weapon, "Text", Player.Character and Player.Character:FindFirstChildOfClass("Tool") and Player.Character:FindFirstChildOfClass("Tool").Name or "None");
+                            SetRenderProperty(Weapon, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Weapon.Color);        
+                            SetRenderProperty(Weapon, "OutlineColor", Library.Settings.Weapon.OutlineColor);              
+                            SetRenderProperty(Weapon, "Outline", true);   
+                            SetRenderProperty(Weapon, "Transparency", TransparencyMultplier)   
+                            BottomOffset = BottomOffset + 10;
+                        elseif Library.Settings.Weapon.Position == "Top" then
+                            SetRenderProperty(Weapon, "Position", BoxPosition + Vector2.new(Width / 2, - TopOffset - 10));
+                            SetRenderProperty(Weapon, "Center", true);    
+                            SetRenderProperty(Weapon, "Size", 13);
+                            SetRenderProperty(Weapon, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Weapon, "Text", Player.Character and Player.Character:FindFirstChildOfClass("Tool") and Player.Character:FindFirstChildOfClass("Tool").Name or "None");
+                            SetRenderProperty(Weapon, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Weapon.Color);        
+                            SetRenderProperty(Weapon, "OutlineColor", Library.Settings.Weapon.OutlineColor);              
+                            SetRenderProperty(Weapon, "Outline", true);   
+                            SetRenderProperty(Weapon, "Transparency", TransparencyMultplier)   
+                            TopOffset = TopOffset + 10;
+                        elseif Library.Settings.Weapon.Position == "Right" then
+                            SetRenderProperty(Weapon, "Position", Vector2.new(BoxCenter.X + BoxSize.X / 2 + 2 + GetRenderProperty(Weapon, "TextBounds").X / 2 + RightOffsetX, BoxPosition.Y -2 + RightOffsetY));
+                            SetRenderProperty(Weapon, "Center", true);    
+                            SetRenderProperty(Weapon, "Size", 13);
+                            SetRenderProperty(Weapon, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Weapon, "Text", Player.Character and Player.Character:FindFirstChildOfClass("Tool") and Player.Character:FindFirstChildOfClass("Tool").Name or "None");
+                            SetRenderProperty(Weapon, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Weapon.Color);        
+                            SetRenderProperty(Weapon, "OutlineColor", Library.Settings.Weapon.OutlineColor);              
+                            SetRenderProperty(Weapon, "Outline", true);   
+                            SetRenderProperty(Weapon, "Transparency", TransparencyMultplier)   
+                            RightOffsetY = RightOffsetY + 10;
+                        elseif Library.Settings.Weapon.Position == "Left" then
+                            SetRenderProperty(Weapon, "Position", Vector2.new(BoxCenter.X - BoxSize.X / 2 - 2 - GetRenderProperty(Weapon, "TextBounds").X / 2 - LeftOffsetX, BoxPosition.Y -2 + LeftOffsetY));
+                            SetRenderProperty(Weapon, "Center", true);    
+                            SetRenderProperty(Weapon, "Size", 13);
+                            SetRenderProperty(Weapon, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(Weapon, "Text", Player.Character and Player.Character:FindFirstChildOfClass("Tool") and Player.Character:FindFirstChildOfClass("Tool").Name or "None");
+                            SetRenderProperty(Weapon, "Color", (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Weapon.Color);        
+                            SetRenderProperty(Weapon, "OutlineColor", Library.Settings.Weapon.OutlineColor);              
+                            SetRenderProperty(Weapon, "Outline", true);   
+                            SetRenderProperty(Weapon, "Transparency", TransparencyMultplier)   
+                            LeftOffsetY = LeftOffsetY + 10;
+                        end
+                    end;
+
+                    -- // Health
+                    SetRenderProperty(HealthValue, "Visible", Library.Settings.Health.Enabled);
+                    if GetRenderProperty(HealthValue, "Visible") then 
+                        if Library.Settings.Health.Position == "Left" then
+                            SetRenderProperty(HealthValue, "Position", Vector2.new(BoxCenter.X - BoxSize.X / 2 - 2 - GetRenderProperty(HealthValue, "TextBounds").X / 2 - LeftOffsetX, BoxPosition.Y -2 + LeftOffsetY));
+                            SetRenderProperty(HealthValue, "Center", true);    
+                            SetRenderProperty(HealthValue, "Size", 13);
+                            SetRenderProperty(HealthValue, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(HealthValue, "Text", tostring(Floor(Health)));
+                            SetRenderProperty(HealthValue, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));        
+                            SetRenderProperty(HealthValue, "OutlineColor", Library.Settings.Health.OutlineColor);              
+                            SetRenderProperty(HealthValue, "Outline", true);  
+                            SetRenderProperty(HealthValue, "Transparency", TransparencyMultplier)    
+                            LeftOffsetY = LeftOffsetY + 10;
+                        elseif Library.Settings.Health.Position == "Top" then
+                            SetRenderProperty(HealthValue, "Position", BoxPosition + Vector2.new(Width / 2, - TopOffset - 10));
+                            SetRenderProperty(HealthValue, "Center", true);    
+                            SetRenderProperty(HealthValue, "Size", 13);
+                            SetRenderProperty(HealthValue, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(HealthValue, "Text", tostring(Floor(Health)));
+                            SetRenderProperty(HealthValue, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));        
+                            SetRenderProperty(HealthValue, "OutlineColor", Library.Settings.Health.OutlineColor);              
+                            SetRenderProperty(HealthValue, "Outline", true);  
+                            SetRenderProperty(HealthValue, "Transparency", TransparencyMultplier)    
+                            TopOffset = TopOffset + 10;
+                        elseif Library.Settings.Health.Position == "Bottom" then
+                            SetRenderProperty(HealthValue, "Position", BoxPosition + Vector2.new(Width / 2, BoxSize.Y + BottomOffset + 2));
+                            SetRenderProperty(HealthValue, "Center", true);    
+                            SetRenderProperty(HealthValue, "Size", 13);
+                            SetRenderProperty(HealthValue, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(HealthValue, "Text", tostring(Floor(Health)));
+                            SetRenderProperty(HealthValue, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));        
+                            SetRenderProperty(HealthValue, "OutlineColor", Library.Settings.Health.OutlineColor);              
+                            SetRenderProperty(HealthValue, "Outline", true);  
+                            SetRenderProperty(HealthValue, "Transparency", TransparencyMultplier)    
+                            BottomOffset = BottomOffset + 10;
+                        elseif Library.Settings.Health.Position == "Right" then
+                            SetRenderProperty(HealthValue, "Position", Vector2.new(BoxCenter.X + BoxSize.X / 2 + 2 + GetRenderProperty(HealthValue, "TextBounds").X / 2 + RightOffsetX, BoxPosition.Y -2 + RightOffsetY));
+                            SetRenderProperty(HealthValue, "Center", true);    
+                            SetRenderProperty(HealthValue, "Size", 13);
+                            SetRenderProperty(HealthValue, "Font", Drawing.Fonts["Plex"]);
+                            SetRenderProperty(HealthValue, "Text", tostring(Floor(Health)));
+                            SetRenderProperty(HealthValue, "Color", Library.Settings.Healthbar.Empty:Lerp(Library.Settings.Healthbar.Color, Health / MaxHealth));        
+                            SetRenderProperty(HealthValue, "OutlineColor", Library.Settings.Health.OutlineColor);              
+                            SetRenderProperty(HealthValue, "Outline", true);  
+                            SetRenderProperty(HealthValue, "Transparency", TransparencyMultplier)    
+                            RightOffsetY = RightOffsetY + 10;
+                        end
+                    end;
+
+                    do -- Chams
+                        Chams.Enabled = Library.Settings.Chams.Enabled;
+                        if Chams.Enabled then
+                            Chams.Adornee = Character;
+                            Chams.FillColor = (IsTarget and Library.Settings.Highlight.TargetColor or IsFriends and Library.Settings.Highlight.FriendColor) or Library.Settings.Chams.Color or Color3.new(1, 1, 1);
+                            Chams.OutlineColor = Library.Settings.Chams.OutlineColor;
+                            Chams.FillTransparency = Library.Settings.Chams.Transparency;
+                            Chams.OutlineTransparency = Library.Settings.Chams.OutlineTransparency;
+                            Chams.DepthMode = Enum.HighlightDepthMode[Library.Settings.Chams.Depth];
+                        end;
+                    end;
+                else
+                    for _, Object in next, Objects do
+                        if _ == "Corner" and _ ~= "Chams" and _ ~= "Offscreen" then
+                            for _, Corner in next, Object do
+                                SetRenderProperty(Corner, "Visible", false);
+                            end;
+                        elseif _ == "Chams" and _ ~= "Offscreen" then
+                            Object.Enabled = false;
+                        elseif _ ~= "Offscreen" then
+                            SetRenderProperty(Object, "Visible", false);
+                        end;
+                    end;
+                    continue; 
+                end;      
+            else
+                for _, Object in next, Objects do
+                    if _ == "Corner" and _ ~= "Chams" then
+                        for _, Corner in next, Object do
+                            SetRenderProperty(Corner, "Visible", false);
+                        end;
+                    elseif _ == "Chams" then
+                        Object.Enabled = false;
+                    else
+                        SetRenderProperty(Object, "Visible", false);
+                    end;
+                end;
+                continue; 
+            end;
+        end;
+    end);
+    Library.UpdateGradient();
+    
+
+function Library.AddInstance(instance, options)
+	local cache = Library._objectCache;
+	if cache[instance] then
+		warn("Instance handler already exists.");
+	else
+		cache[instance] = { InstanceObject.new(instance, options) };
+	end
+	return cache[instance][1];
+end
+
+function Library.Load()
+	assert(not Library._hasLoaded, "Esp has already been loaded.");
+
+	local function createObject(player)
+		Library._objectCache[player] = {
+			EspObject.new(player, Library),
+			ChamObject.new(player, Library)
+		};
+	end
+
+	local function removeObject(player)
+		local object = Library._objectCache[player];
+		if object then
+			for i = 1, #object do
+				object[i]:Destruct();
+			end
+			Library._objectCache[player] = nil;
+		end
+	end
+
+	local plrs = players:GetPlayers();
+	for i = 2, #plrs do
+		createObject(plrs[i]);
+	end
+
+	Library.playerAdded = players.PlayerAdded:Connect(createObject);
+	Library.playerRemoving = players.PlayerRemoving:Connect(removeObject);
+	Library._hasLoaded = true;
+end
+
+function Library.Unload()
+	assert(Library._hasLoaded, "Esp has not been loaded yet.");
+
+	for index, object in next, Library._objectCache do
+		for i = 1, #object do
+			object[i]:Destruct();
+		end
+		Library._objectCache[index] = nil;
+	end
+
+	Library.playerAdded:Disconnect();
+	Library.playerRemoving:Disconnect();
+	Library._hasLoaded = false;
+end
+
+-- game specific functions
+function Library.getWeapon(player)
+	return "Unknown";
+end
+
+function Library.isFriendly(player)
+	return player.Team and player.Team == localPlayer.Team;
+end
+
+function Library.getTeamColor(player)
+	return player.Team and player.Team.TeamColor and player.Team.TeamColor.Color;
+end
+
+function Library.getCharacter(player)
+	return player.Character;
+end
+
+function Library.getHealth(player)
+	local character = player and Library.getCharacter(player);
+	local humanoid = character and findFirstChildOfClass(character, "Humanoid");
+	if humanoid then
+		return humanoid.Health, humanoid.MaxHealth;
+	end
+	return 100, 100;
+end
+    
+    return Library;
+end;
